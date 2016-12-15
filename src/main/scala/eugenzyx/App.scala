@@ -2,13 +2,13 @@ package xyz.eugenzyx
 
 import scala.util.Try
 
-import org.apache.spark.graphx._
+import org.apache.spark.graphx.Graph
 import org.apache.spark.sql._
 import org.apache.spark.{SparkConf, SparkContext}
 
 import org.neo4j.driver.v1._
 
-object TwitterGraph extends TweetUtils {
+object TwitterGraph extends TweetUtils with Transformations {
   def main(args: Array[String]) {
     val sparkConf = new SparkConf().setAppName("TwitterGraph")
 
@@ -22,25 +22,33 @@ object TwitterGraph extends TweetUtils {
     val englishTweetsRDD =
       inputDataFrame
         .where("lang = \"en\"")
-        .map(row => (row.getAs[String]("id"), row.getAs[String]("text"), row.getAs[String]("inReplyToStatusId")))
-        .filter { case (id, _, inReplyToStatusId) =>
-          List(id, inReplyToStatusId).foldLeft(true)((start, value) => start && value.forall(_.isDigit)) } // filter out corrupted tuples
+        .map(toTweetSummary)
+        .filter(onlyValidRecords)
 
     englishTweetsRDD.cache()
 
-    val tweetsRDD = englishTweetsRDD map { case (id, text, _) => (id.toLong, text) }
-    val responsesRDD = englishTweetsRDD map { case (_, _, inReplyToStatusId) => (inReplyToStatusId.toLong, "") }
+    val tweetsRDD = englishTweetsRDD map tweetToIdTextPairRDD
+    val responsesRDD = englishTweetsRDD map responseToIdTextPairRDD
 
     val vertices = tweetsRDD union responsesRDD
-    val edges = englishTweetsRDD map { case (id, _, inReplyToStatusId) => Edge(id.toLong, inReplyToStatusId.toLong, "Replies") }
+    val edges = englishTweetsRDD map extractEdges
     val none = "none" // defining a defaul vertex
     val graph = Graph(vertices, edges, none) // defining a graph of tweets
 
-    val popularTweetsIds = graph.inDegrees.sortBy({ case (_, count) => count }, false).take(20).map(_._1)
-    val popularTriplets = graph.triplets.filter(triplet => popularTweetsIds.contains(triplet.dstId))
+    val popularTweetsIds = graph
+      .inDegrees
+      .sortBy(getCount, descending)
+      .take(20)
+      .map(getIds)
+
+    val popularTriplets = graph
+      .triplets
+      .filter(triplet => popularTweetsIds.contains(triplet.dstId))
+
     val mostRepliedTweet = popularTweetsIds.head // tweet with maximum number of replies
 
     val driver = GraphDatabase.driver("bolt://localhost/", AuthTokens.basic("neo4j", "admin"))
+
     popularTriplets.collect().foreach { triplet =>
       val session = driver.session()
 
