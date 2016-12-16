@@ -39,10 +39,24 @@
       <artifactId>neo4j-java-driver</artifactId>
       <version>1.1-SNAPSHOT</version>
     </dependency>
+
+    <dependency>
+      <groupId>com.holdenkarau</groupId>
+      <artifactId>spark-testing-base_${scala.compat.version}</artifactId>
+      <version>${spark.version}_0.4.7</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.scalatest</groupId>
+      <artifactId>scalatest_${scala.compat.version}</artifactId>
+      <version>2.0.M6-SNAP8</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
     <sourceDirectory>src/main/scala</sourceDirectory>
+    <testSourceDirectory>src/test/scala</testSourceDirectory>
     <plugins>
       <plugin>
         <!-- see http://davidb.github.com/scala-maven-plugin -->
@@ -53,6 +67,7 @@
           <execution>
             <goals>
               <goal>compile</goal>
+              <goal>testCompile</goal>
             </goals>
             <configuration>
               <args>
@@ -84,11 +99,32 @@
           <disableXmlReport>true</disableXmlReport>
           <!-- If you have classpath issue like NoDefClassError,... -->
           <!-- useManifestOnlyJar>false</useManifestOnlyJar -->
+	  <configuration>
+	    <skipTests>true</skipTests>
+	  </configuration>
           <includes>
             <include>**/*Test.*</include>
             <include>**/*Suite.*</include>
           </includes>
         </configuration>
+      </plugin>
+      <plugin>
+	<groupId>org.scalatest</groupId>
+	<artifactId>scalatest-maven-plugin</artifactId>
+	<version>1.0</version>
+	<configuration>
+	  <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
+	  <junitxml>.</junitxml>
+	  <filereports>WDF TestSuite.txt</filereports>
+	</configuration>
+	<executions>
+	  <execution>
+	    <id>test</id>
+	    <goals>
+	      <goal>test</goal>
+	    </goals>
+	  </execution>
+	</executions>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

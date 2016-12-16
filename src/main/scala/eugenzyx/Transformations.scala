@@ -32,7 +32,7 @@ trait Transformations {
     case (_, count) => count
   }
 
-  def getIds(tuple: (VertexId, Int)): Int = tuple match {
+  def getIds(tuple: (VertexId, Int)): Long = tuple match {
     case (id, _) => id
   }
 
