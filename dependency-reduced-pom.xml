@@ -48,10 +48,31 @@
         <configuration>
           <useFile>false</useFile>
           <disableXmlReport>true</disableXmlReport>
+          <configuration>
+            <skipTests>true</skipTests>
+          </configuration>
           <includes>
             <include>**/*Test.*</include>
             <include>**/*Suite.*</include>
           </includes>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.scalatest</groupId>
+        <artifactId>scalatest-maven-plugin</artifactId>
+        <version>1.0</version>
+        <executions>
+          <execution>
+            <id>test</id>
+            <goals>
+              <goal>test</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
+          <junitxml>.</junitxml>
+          <filereports>WDF TestSuite.txt</filereports>
         </configuration>
       </plugin>
       <plugin>
@@ -114,6 +135,10 @@
           <groupId>org.scalacheck</groupId>
         </exclusion>
         <exclusion>
+          <artifactId>junit</artifactId>
+          <groupId>junit</groupId>
+        </exclusion>
+        <exclusion>
           <artifactId>jetty-util</artifactId>
           <groupId>org.eclipse.jetty</groupId>
         </exclusion>
@@ -136,18 +161,6 @@
         <exclusion>
           <artifactId>hadoop-minicluster</artifactId>
           <groupId>org.apache.hadoop</groupId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.11</version>
-      <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <artifactId>hamcrest-core</artifactId>
-          <groupId>org.hamcrest</groupId>
         </exclusion>
       </exclusions>
     </dependency>
