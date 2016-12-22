@@ -3,6 +3,8 @@ Analysis of the USA election with Apache Spark GraphX
 
 ![Fig. 1 - The most popular tweets by Hillary Clinton and Donald Trump after the election has ended](_images/clinton-trump.png)
 
+Fig. 1 - The most popular tweets by Hillary Clinton and Donald Trump after the election has ended
+
 Almost right before the election started, I decided that it might have been interesting to analyse what people think and, more importantly, say on this topic. Because, as you know, this election had promised to be an extraordinary one.
 
 This is when I came up with an idea to utilise Twitter's [streaming API](https://dev.twitter.com/streaming/overview) to continuously save vox populi onto disk for its further analysis. So I had been doing this during a period that spans four days - starting from 7th and up to 10th of November with occasional breaks. When I thought that I already have enough of data for some experiments, an ETL task had been performed and the tweets (which were stored as plain text files) had been turned into a DataFrame compressed with [Parquet](https://parquet.apache.org/). This DataFrame has around ten different fields. But for the purpose of this article only these three were used:
@@ -75,6 +77,8 @@ This got us twenty ids of the tweets with the largest number of replies. Now it 
 
 ![Fig. 2 - Triplet of two vertices and an edge](_images/triplet.png)
 
+Fig. 2 - Triplet of two vertices and an edge
+
 ```scala
 val popularTriplets = graph
   .triplets
@@ -111,7 +115,11 @@ Finally, after the program has been executed, we can observe the following pictu
 
 ![Fig. 3 - Visualization of the graph](_images/graph.png)
 
+Fig. 3 - Visualization of the graph
+
 ![Fig. 4 - Legend for the graph on Fig. 3](_images/legend.png)
+
+Fig. 4 - Legend for the graph on Fig. 3
 
 So here you can see tweets that mention Donald Trump marked in red, Hillary Clinton - in Blue, both - in yellow, and tweets containing offensive language in green. Any other tweets are grey, as they interest us the least.
 
