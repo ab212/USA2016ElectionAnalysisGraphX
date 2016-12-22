@@ -123,7 +123,7 @@
     <dependency>
       <groupId>com.holdenkarau</groupId>
       <artifactId>spark-testing-base_2.10</artifactId>
-      <version>1.6.2_0.4.7</version>
+      <version>1.6.1_0.3.2</version>
       <scope>test</scope>
       <exclusions>
         <exclusion>
@@ -167,8 +167,14 @@
     <dependency>
       <groupId>org.scalatest</groupId>
       <artifactId>scalatest_2.10</artifactId>
-      <version>2.0.M6-SNAP8</version>
+      <version>3.0.1</version>
       <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>scalactic_2.10</artifactId>
+          <groupId>org.scalactic</groupId>
+        </exclusion>
+      </exclusions>
     </dependency>
   </dependencies>
   <properties>
@@ -176,7 +182,7 @@
     <scala.version>2.10.4</scala.version>
     <encoding>UTF-8</encoding>
     <maven.compiler.source>1.6</maven.compiler.source>
-    <spark.version>1.6.2</spark.version>
+    <spark.version>1.6.1</spark.version>
     <maven.compiler.target>1.6</maven.compiler.target>
   </properties>
 </project>

@@ -43,7 +43,9 @@ object TwitterGraph extends TweetUtils with Transformations {
 
     val popularTriplets = graph
       .triplets
-      .filter(triplet => popularTweetsIds.contains(triplet.dstId))
+      .filter(popularTweetsIds contains _.dstId)
+
+    popularTriplets.cache()
 
     val mostRepliedTweet = popularTweetsIds.head // tweet with maximum number of replies
 
@@ -62,5 +64,19 @@ object TwitterGraph extends TweetUtils with Transformations {
       session.close()
     }
     driver.close()
+
+    englishTweetsRDD.unpersist() // we don't need this anymore
+
+    val trumpMostPopular = 796315640307060738L // id of the most popular tweets were taken from the graph
+    val clintonMostPopular = 796169187882369024L
+
+    val trumpTotalRepliesCount = popularTriplets.filter(triplet => triplet.dstId == trumpMostPopular).count
+    val clintonTotalRepliesCount = popularTriplets.filter(triplet => triplet.dstId == clintonMostPopular).count
+
+    val trumpOffensiveRepliesCount = popularTriplets.filter(triplet => triplet.dstId == trumpMostPopular && isCurseTweet(triplet.srcAttr)).count
+    val clintonOffensiveRepliesCount = popularTriplets.filter(triplet => triplet.dstId == clintonMostPopular && isCurseTweet(triplet.srcAttr)).count
+
+    println(s"Total replies to Trump's most popular tweet: $trumpTotalRepliesCount, number of tweets containing curses: $trumpOffensiveRepliesCount, ratio: ${ trumpOffensiveRepliesCount.toFloat / trumpTotalRepliesCount }")
+    println(s"Total replies to Clinton's most popular tweet: $clintonTotalRepliesCount, number of tweets containing curses: $clintonOffensiveRepliesCount, ratio: ${ clintonOffensiveRepliesCount.toFloat / clintonTotalRepliesCount }")
   }
 }
