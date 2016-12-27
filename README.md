@@ -61,9 +61,9 @@ val none = "none" // defining a defaul vertex
 val graph = Graph(vertices, edges, none) // defining a graph of tweets
 ```
 
-This is a directed acyclic graph. It is directed because an edge represents a response to a tweet. And it is acyclic because an earlier tweet can't reply to a tweet that isn't present by the time the first tweet has been created.
+This is a directed acyclic graph. It is directed because an edge represents a response to a tweet. And it is acyclic because an earlier tweet can't reply to a tweet that isn't present by the time the first tweet has been created. This is also a property graph because for every vertex and edge there is an attached property. The property of a vertex is a tweet's text. For an edge, it is a type of relationship that connects two vertices.
 
-Now, what can we do with this graph? Well, let's first find the most popular tweets. In order to do this, I will be using `inDegrees` function, which returns a tuple containing a VertexId and the number of edges pointing to this vertex. Similarly to `inDegrees`, the Graph has also an `outDegrees` function, but in our context, it isn't very helpful since a tweet can only reply to one tweet at most.
+Now, what can we do with this graph? Well, let's first find the most popular tweets. In order to do this, I will be using `inDegrees` function, which returns a collection of tuples containing a VertexId and the number of edges pointing to this vertex. Similarly to `inDegrees`, the Graph has also an `outDegrees` function, but in our context, it isn't very helpful since a tweet can only reply to one tweet at most.
 
 ```scala
 val popularTweetsIds = graph
@@ -123,7 +123,13 @@ Fig. 4 - Legend for the graph on Fig. 3
 
 So here you can see tweets that mention Donald Trump marked in red, Hillary Clinton - in Blue, both - in yellow, and tweets containing offensive language in green. Any other tweets are grey, as they interest us the least.
 
-The other thing we can find on the graph is the most popular tweet over that period. And it is [this](https://twitter.com/realDonaldTrump/status/796315640307060738) tweet sent by Donald Trump as, by that time already, the president-elect of the USA. An interesting thing to note is the amount of obscene language used in response to this tweet - 13. In comparison, the most popular [tweet](https://twitter.com/HillaryClinton/status/796169187882369024) by Hillary Clinton has only 3 curses in response.
+The other thing we can find on the graph is the most popular tweet over that period:
+
+```scala
+val mostRepliedTweet = popularTweetsIds.head // tweet with maximum number of replies
+```
+
+And it is [this](https://twitter.com/realDonaldTrump/status/796315640307060738) tweet sent by Donald Trump as, by that time already, the president-elect of the USA. An interesting thing to note is the amount of obscene language used in response to this tweet - 13. In comparison, the most popular [tweet](https://twitter.com/HillaryClinton/status/796169187882369024) by Hillary Clinton has only 3 curses in response.
 
 Let's calculate what fraction of all the amount of responses do obscene tweets make up and display this on the graph:
 
@@ -148,4 +154,81 @@ Total replies to Trump's most popular tweet: 183, number of tweets containing cu
 Total replies to Clinton's most popular tweet: 78, number of tweets containing curses: 3, ratio: 0.03846154
 ```
 
-So what can we conclude from these results? I suppose, it is that there were more people who were mad about Trump's victory than Clinton's defeat. Keep in mind, however, that twitter's streaming API only outputs 5% of all the tweets that are posted. On top of that, I'll remind you that there were times when I stopped the streaming process for some time and I'm afraid I missed the most interesting part of that day.
+So what can we conclude from these results? I suppose, it is that there were more people who were mad about Trump's victory than Clinton's defeat. Keep in mind, however, that twitter's streaming API only outputs 5% of all the tweets that are posted. On top of that, I'll remind you that there were times when I stopped the streaming process for some time and I'm afraid I missed the most interesting part of those days.
+
+Finally, let's use a more suitable algorithm for counting most popular tweets - PageRank. This is an algorithm that was initially invented by founders of Google back when they were students to improve the relevance of search results in a new type of search engine they were working on. The idea behind it is that a document is more important the more times it is referred to in other documents both directly and indirectly (through other intermediate documents). [This video](https://www.youtube.com/watch?v=u8HtO7Gd5q0) explains it in detail.
+
+Luckily, this algorithm can be applied to any graph and is already implemented in GraphX.
+
+```scala
+val popularTweetsPageRank = graph
+  .staticPageRank(10)
+  .vertices
+  .sortBy(_._2, descending) // sort by rank
+  .take(20)
+  .map(_._1) // VertexId
+```
+
+And so we have got ids of 20 most popular tweets using PageRank. Although we have used another approach, the result is the same:
+
+```scala
+println(popularTweetsIds.toSet == popularTweetsPageRank.toSet) // true
+```
+
+The reason behind this is that number of second level replies (reply to a reply to a tweet) in the data set being used is extremely insignificant (again, because of 5% limit that Twitter outputs in their free stream). Furthermore, the top level tweets they reply to are also unpopular (have at most 2 replies) thus having no impact on the actual most popular tweets, which have hundreds of replies:
+
+```scala
+val replies = englishTweetsRDD
+  // take tweets that are themselves replies:
+  .filter(!_._3.isEmpty)
+  // get their ids:
+  .map(_._1)
+  .collect()
+  .toSet
+
+val repliesWithRepliesIds = englishTweetsRDD
+  // get tweets that reply to replies:
+  .filter { case (_, _, inReplyToStatusId) => replies(inReplyToStatusId.toString) }
+  // get ids of first level replies:
+  .map(_._3.toLong)
+  .collect()
+  .toSet
+
+graph
+  // get a collection of tuples (VertexId, NumberIncomingEdges):
+  .inDegrees
+  // get only replies with replies:
+  .filter { case (id, _) => repliesWithRepliesIds(id) }
+  // sort by number of incoming edges:
+  .sortBy(getCount, descending)
+  // take top 20 and print them out:
+  .take(20)
+  .foreach(println)
+```
+
+```
+Output (id, number of replies):
+
+(796188651583655942,2)
+(796222914823618561,2)
+(796226781980356608,2)
+(796627237340520448,1)
+(796591040501157888,1)
+(796622837540855808,1)
+(796141062997819396,1)
+(796572627531890689,1)
+(796177092077559808,1)
+(796447414961967104,1)
+(796428863568019460,1)
+(796512841918480384,1)
+(795739009616121856,1)
+(796596354709671936,1)
+(796459909814554628,1)
+(796500472911851520,1)
+(796420030367989761,1)
+(796491488691621892,1)
+(796154228934778880,1)
+(796478276663382016,1)
+```
+
+In conclusion, it's just a small and, hopefully, interesting fraction of what can be done with GraphX. It also includes other algorithms and lots of other functions for operations on graphs comprised of large data sets that we may or may not see in the future. But that's it for today.

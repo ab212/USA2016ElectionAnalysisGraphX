@@ -35,6 +35,8 @@ object TwitterGraph extends TweetUtils with Transformations {
     val none = "none" // defining a defaul vertex
     val graph = Graph(vertices, edges, none) // defining a graph of tweets
 
+    graph.cache()
+
     val popularTweetsIds = graph
       .inDegrees
       .sortBy(getCount, descending)
@@ -65,8 +67,6 @@ object TwitterGraph extends TweetUtils with Transformations {
     }
     driver.close()
 
-    englishTweetsRDD.unpersist() // we don't need this anymore
-
     val trumpMostPopular = 796315640307060738L // id of the most popular tweets were taken from the graph
     val clintonMostPopular = 796169187882369024L
 
@@ -78,5 +78,41 @@ object TwitterGraph extends TweetUtils with Transformations {
 
     println(s"Total replies to Trump's most popular tweet: $trumpTotalRepliesCount, number of tweets containing curses: $trumpOffensiveRepliesCount, ratio: ${ trumpOffensiveRepliesCount.toFloat / trumpTotalRepliesCount }")
     println(s"Total replies to Clinton's most popular tweet: $clintonTotalRepliesCount, number of tweets containing curses: $clintonOffensiveRepliesCount, ratio: ${ clintonOffensiveRepliesCount.toFloat / clintonTotalRepliesCount }")
+
+    val popularTweetsPageRank = graph
+      .staticPageRank(10)
+      .vertices
+      .sortBy(_._2, descending) // sort by rank
+      .take(20)
+      .map(_._1) // VertexId
+
+    println(popularTweetsIds.toSet == popularTweetsPageRank.toSet)
+
+    val replies = englishTweetsRDD
+      // take tweets that are replies:
+      .filter(!_._3.isEmpty)
+      // get their ids:
+      .map(_._1)
+      .collect()
+      .toSet
+
+    val repliesWithRepliesIds = englishTweetsRDD
+      // get tweets that reply to replies:
+      .filter { case (_, _, inReplyToStatusId) => replies(inReplyToStatusId.toString) }
+      // get ids of first level replies:
+      .map(_._3.toLong)
+      .collect()
+      .toSet
+
+    graph
+      // get a collection of tuples (VertexId, NumberIncomingEdges):
+      .inDegrees
+      // get only replies with replies:
+      .filter { case (id, _) => repliesWithRepliesIds(id) }
+      // sort by number of incoming edges:
+      .sortBy(getCount, descending)
+      // take top 20 and print them out:
+      .take(20)
+      .foreach(println)
   }
 }
