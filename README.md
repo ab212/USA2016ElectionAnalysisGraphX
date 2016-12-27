@@ -154,7 +154,7 @@ Total replies to Trump's most popular tweet: 183, number of tweets containing cu
 Total replies to Clinton's most popular tweet: 78, number of tweets containing curses: 3, ratio: 0.03846154
 ```
 
-So what can we conclude from these results? I suppose, it is that there were more people who were mad about Trump's victory than Clinton's defeat. Keep in mind, however, that twitter's streaming API only outputs 5% of all the tweets that are posted. On top of that, I'll remind you that there were times when I stopped the streaming process for some time and I'm afraid I missed the most interesting part of those days.
+So what can we conclude from these results? I suppose, it is that there were more people who were mad about Trump's victory than Clinton's defeat. Keep in mind, however, that twitter's streaming API only outputs 1% of all the tweets that are posted. On top of that, I'll remind you that there were times when I stopped the streaming process for some time and I'm afraid I missed the most interesting part of those days.
 
 Finally, let's use a more suitable algorithm for counting most popular tweets - PageRank. This is an algorithm that was initially invented by founders of Google back when they were students to improve the relevance of search results in a new type of search engine they were working on. The idea behind it is that a document is more important the more times it is referred to in other documents both directly and indirectly (through other intermediate documents). [This video](https://www.youtube.com/watch?v=u8HtO7Gd5q0) explains it in detail.
 
@@ -175,7 +175,7 @@ And so we have got ids of 20 most popular tweets using PageRank. Although we hav
 println(popularTweetsIds.toSet == popularTweetsPageRank.toSet) // true
 ```
 
-The reason behind this is that number of second level replies (reply to a reply to a tweet) in the data set being used is extremely insignificant (again, because of 5% limit that Twitter outputs in their free stream). Furthermore, the top level tweets they reply to are also unpopular (have at most 2 replies) thus having no impact on the actual most popular tweets, which have hundreds of replies:
+The reason behind this is that number of second level replies (reply to a reply to a tweet) in the data set being used is extremely insignificant (again, because of 1% limit that Twitter outputs in their free stream). Furthermore, the top level tweets they reply to are also unpopular (have at most 2 replies) thus having no impact on the actual most popular tweets, which have hundreds of replies:
 
 ```scala
 val replies = englishTweetsRDD
