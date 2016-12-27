@@ -61,7 +61,7 @@ val none = "none" // defining a defaul vertex
 val graph = Graph(vertices, edges, none) // defining a graph of tweets
 ```
 
-This is a directed acyclic graph. It is directed because an edge represents a response to a tweet. And it is acyclic because an earlier tweet can't reply to a tweet that isn't present by the time the first tweet has been created. This is also a property graph because for every vertex and edge there is an attached property. The property of a vertex is a tweet's text. For an edge, it is a type of relationship that connects two vertices.
+This is a directed acyclic graph. It is directed because an edge represents a response to a tweet. And it is acyclic because a tweet can't reply to another tweet that has been posted after the first one. This is also a property graph because for every vertex and edge there is an attached property. The property of a vertex is a tweet's text. For an edge, it is a type of relationship that connects two vertices.
 
 Now, what can we do with this graph? Well, let's first find the most popular tweets. In order to do this, I will be using `inDegrees` function, which returns a collection of tuples containing a VertexId and the number of edges pointing to this vertex. Similarly to `inDegrees`, the Graph has also an `outDegrees` function, but in our context, it isn't very helpful since a tweet can only reply to one tweet at most.
 
