@@ -66,11 +66,12 @@ This is a directed acyclic graph. It is directed because an edge represents a re
 Now, what can we do with this graph? Well, let's first find the most popular tweets. In order to do this, I will be using `inDegrees` function, which returns a collection of tuples containing a VertexId and the number of edges pointing to this vertex. Similarly to `inDegrees`, the Graph has also an `outDegrees` function, but in our context, it isn't very helpful since a tweet can only reply to one tweet at most.
 
 ```scala
-val popularTweetsIds = graph
+val popularInDegrees = graph // this will be used later
   .inDegrees
   .sortBy(getCount, descending)
   .take(20)
-  .map(getIds)
+
+val popularTweetsIds = popularInDegrees.map(getIds)
 ```
 
 This got us twenty ids of the tweets with the largest number of replies. Now it would be nice to visualise this data. In order to achieve this, there is a `triplets` method. What it does in detail you can read [here](http://spark.apache.org/docs/latest/graphx-programming-guide.html), but in short, it returns an RDD of tuples of three elements containing two vertices and the edge that connects them, like this:
@@ -175,7 +176,40 @@ And so we have got ids of 20 most popular tweets using PageRank. Although we hav
 println(popularTweetsIds.toSet == popularTweetsPageRank.toSet) // true
 ```
 
-The reason behind this is that number of second level replies (reply to a reply to a tweet) in the data set being used is extremely insignificant (again, because of 1% limit that Twitter outputs in their free stream). Furthermore, the top level tweets they reply to are also unpopular (have at most 2 replies) thus having no impact on the actual most popular tweets, which have hundreds of replies:
+Well, that is not entirely true. If we look closely and compare the top tweets as two ordered lists (as opposed to comparison of the sets above, which are not ordered collections, by the way), we would see that there are two swapped tweets:
+
+```scala
+(popularInDegrees zip popularPageRank)             // zip the results that we have got from two approaches
+  .foreach { case ((l, _), (r, _)) =>
+    println(s"$l $r ${ if (l == r) "" else "!" }") // print out ids of the tweets and append an ! if they are not equal
+  }
+
+Output:
+
+796315640307060738 796315640307060738
+780683171520212992 780683171520212992
+796182637622816768 796182637622816768
+796169187882369024 796169187882369024
+795954831718498305 795954831718498305
+796219890239733760 796219890239733760
+796394920051441664 796394920051441664
+796259238590824449 796259238590824449
+796377820091981824 796377820091981824
+795737237329743873 795737237329743873
+796425920378765313 796425920378765313
+796317753749729280 796317753749729280
+795743568736481280 795743568736481280
+796227455082233858 796227455082233858
+796141495573155840 796171467943710720 !
+796171467943710720 796141495573155840 !
+796220439542439936 796220439542439936
+796188203300442112 796188203300442112
+796463632972267520 796463632972267520
+796171852645355522 796171852645355522
+
+```
+
+Why is there so few differences in the two approaches? The reason behind this is that number of second level replies (reply to a reply to a tweet) in the data set being used is extremely insignificant (again, because of 1% limit that Twitter outputs in their free stream). Furthermore, the top level tweets they reply to are also unpopular (have at most 2 replies) thus having no impact on the actual most popular tweets, which have hundreds of replies:
 
 ```scala
 val replies = englishTweetsRDD
@@ -204,9 +238,7 @@ graph
   // take top 20 and print them out:
   .take(20)
   .foreach(println)
-```
 
-```
 Output (id, number of replies):
 
 (796188651583655942,2)
@@ -231,4 +263,4 @@ Output (id, number of replies):
 (796478276663382016,1)
 ```
 
-In conclusion, it's just a small and, hopefully, interesting fraction of what can be done with GraphX. It also includes other algorithms and lots of other functions for operations on graphs comprised of large data sets that we may or may not see in the future. But that's it for today.
+In conclusion, it's just a small and, hopefully, an interesting fraction of what can be done with GraphX. It also includes other algorithms for operations on graphs comprised of large data sets and I hope that we will see more such stuff in future articles. But that's it for today.

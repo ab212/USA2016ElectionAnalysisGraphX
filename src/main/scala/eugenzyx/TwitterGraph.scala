@@ -37,11 +37,12 @@ object TwitterGraph extends TweetUtils with Transformations {
 
     graph.cache()
 
-    val popularTweetsIds = graph
+    val popularInDegrees = graph // this will be used later
       .inDegrees
       .sortBy(getCount, descending)
       .take(20)
-      .map(getIds)
+
+    val popularTweetsIds = popularInDegrees.map(getIds)
 
     val popularTriplets = graph
       .triplets
@@ -79,14 +80,16 @@ object TwitterGraph extends TweetUtils with Transformations {
     println(s"Total replies to Trump's most popular tweet: $trumpTotalRepliesCount, number of tweets containing curses: $trumpOffensiveRepliesCount, ratio: ${ trumpOffensiveRepliesCount.toFloat / trumpTotalRepliesCount }")
     println(s"Total replies to Clinton's most popular tweet: $clintonTotalRepliesCount, number of tweets containing curses: $clintonOffensiveRepliesCount, ratio: ${ clintonOffensiveRepliesCount.toFloat / clintonTotalRepliesCount }")
 
-    val popularTweetsPageRank = graph
+    val popularPageRank = graph
       .staticPageRank(10)
       .vertices
-      .sortBy(_._2, descending) // sort by rank
+      .sortBy(getRank, descending)
       .take(20)
-      .map(_._1) // VertexId
 
-    println(popularTweetsIds.toSet == popularTweetsPageRank.toSet)
+    (popularInDegrees zip popularPageRank)             // zip the results that we have got from two approaches
+      .foreach { case ((l, _), (r, _)) =>
+        println(s"$l $r ${ if (l == r) "" else "!" }") // print out ids of the tweets and append an ! if they are not equal
+      }
 
     val replies = englishTweetsRDD
       // take tweets that are replies:

@@ -7,6 +7,7 @@ import org.apache.spark.sql.Row
 trait Transformations {
   type TweetSummary = (String, String, String)
   type VertexWithCount = (VertexId, Int)
+  type VertexWithRank = (VertexId, Double)
 
   def tweetToIdTextPairRDD: TweetSummary => (Long, String) = tweetSummary => tweetSummary match {
     case (id, text, _) => (id.toLong, text)
@@ -30,6 +31,8 @@ trait Transformations {
   }
 
   def getCount: VertexWithCount => Int = tuple => tuple match { case (_, count) => count }
+
+  def getRank: VertexWithRank => Double = tuple => tuple match { case (_, rank) => rank }
 
   def getIds: VertexWithCount => VertexId = tuple => tuple match { case (id, _) => id }
 
