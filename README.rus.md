@@ -18,11 +18,10 @@
 Первый шаг — подготовка данных для нашего графа. Давайте создадим RDD из исходного датафрейма (см. файл [TwitterGraph.scala](src/main/scala/eugenzyx/TwitterGraph.scala)):
 
 ```scala
-val englishTweetsRDD =
-  inputDataFrame
-    .where("lang = \"en\"")    // берём твиты только на английском языке
-    .map(toTweetSummary)       // отображаем их в тройки такого формата: (id, text, inReplyToStatusId),
-    .filter(onlyValidRecords)  // отфильтровываем твиты, не прошедшие проверку на валидность
+val englishTweetsRDD = inputDataFrame
+  .where("lang = \"en\"")    // берём твиты только на английском
+  .map(toTweetSummary)       // отображаем их в тройки такого формата: (id, text, inReplyToStatusId),
+  .filter(onlyValidRecords)  // отфильтровываем твиты, не прошедшие проверку на валидность
 ```
 
 Следующий рациональный шаг - это кэширование RDD `englishTweetsRDD` для того, чтобы избежать повторной обработки шагов его физического плана, поскольку он будет использоваться несколько раз:
@@ -34,16 +33,16 @@ englishTweetsRDD.cache()
 Далее мы определяем вершины графа:
 
 ```scala
-val tweetsRDD = englishTweetsRDD map tweetToIdTextPairRDD       // отображаем твиты в кортежи состоящие из двух элементов:
-val responsesRDD = englishTweetsRDD map responseToIdTextPairRDD // (id, text)
+val tweetsRDD = englishTweetsRDD.map(tweetToIdTextPairRDD)       // отображаем твиты в кортежи состоящие из двух элементов:
+val responsesRDD = englishTweetsRDD.map(responseToIdTextPairRDD) // (id, text)
 
-val vertices = tweetsRDD union responsesRDD                     // и производим объединения только что полученных RDD
+val vertices = tweetsRDD.union(responsesRDD)                     // и производим объединения только что полученных RDD
 ```
 
 И его рёбра:
 
 ```scala
-val edges = englishTweetsRDD map extractEdges
+val edges = englishTweetsRDD.map(extractEdges)
 ```
 
 где `extractEdges` представляет собой функцию, определённую в [Transformations.scala](src/main/scala/eugenzyx/Transformations.scala):
@@ -81,9 +80,8 @@ val popularTweetsIds = popularInDegrees.map(getIds)
 Рис. 2 - Тройка, состоящая из двух вершин и ребра
 
 ```scala
-val popularTriplets = graph
-  .triplets
-  .filter(popularTweetsIds contains _.dstId)
+val popularTriplets = graph.triplets
+  .filter(triplet => popularTweetsIds.contains(triplet.dstId))
 ```
 
 Теперь, когда у нас есть эти данные, мы можем визуализировать их. Я хочу, чтобы визуализация отображала отношения между твитами и сразу отвечала на следующие вопросы:
@@ -178,9 +176,11 @@ println(popularTweetsIds.toSet == popularTweetsPageRank.toSet) // true
 Хотя это и не совсем правда. Если внимательно посмотреть и сравнить эти две двадцатки, включая порядок элементов (в противовес сравнению множеств, которые, к слову, являются неупорядоченными коллекциями), мы увидим, что есть два твита, поменяных местами:
 
 ```scala
-(popularInDegrees zip popularPageRank)             // соединяем результаты полученные в результате двух подходов в кортежи
-  .foreach { case ((l, _), (r, _)) =>
-    println(s"$l $r ${ if (l == r) "" else "!" }") // выводим идентификаторы твитов и добавляем "!" если они не равны
+popularInDegrees
+  .zip(popularPageRank) // соединяем результаты полученные в результате двух подходов в кортежи
+  .foreach {
+    case ((l, _), (r, _)) =>
+      println(s"$l $r ${if (l == r) "" else "!"}") // выводим идентификаторы твитов и добавляем "!" если они не равны
   }
 
 Output:
@@ -221,7 +221,9 @@ val replies = englishTweetsRDD
 
 val repliesWithRepliesIds = englishTweetsRDD
   // найдём твиты, которые отвечают на ответы
-  .filter { case (_, _, inReplyToStatusId) => replies(inReplyToStatusId.toString) }
+  .filter {
+    case (_, _, inReplyToStatusId) => replies(inReplyToStatusId.toString)
+  }
   // получим идентификаторы ответов первого уровня:
   .map(_._3.toLong)
   .collect()

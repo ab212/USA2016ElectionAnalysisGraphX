@@ -10,6 +10,8 @@ import org.neo4j.driver.v1._
 
 object TwitterGraph extends TweetUtils with Transformations {
   def main(args: Array[String]) {
+    require(!args.isEmpty, "A path to tweets should be specified")
+
     val sparkConf = new SparkConf().setAppName("TwitterGraph")
 
     val sc = new SparkContext(sparkConf)
@@ -17,49 +19,51 @@ object TwitterGraph extends TweetUtils with Transformations {
     val sqlContext = new SQLContext(sc)
     import sqlContext.implicits._
 
-    val inputDataFrame = sqlContext.read.load( args(0) ) // path to Tweets.parquet
+    val inputDataFrame = sqlContext.read.load(args(0)) // path to Tweets.parquet
 
-    val englishTweetsRDD =
-      inputDataFrame
-        .where("lang = \"en\"")
-        .map(toTweetSummary)
-        .filter(onlyValidRecords)
+    val englishTweetsRDD = inputDataFrame
+      .where("lang = \"en\"")
+      .map(toTweetSummary)
+      .filter(onlyValidRecords)
 
     englishTweetsRDD.cache()
 
-    val tweetsRDD = englishTweetsRDD map tweetToIdTextPairRDD
-    val responsesRDD = englishTweetsRDD map responseToIdTextPairRDD
+    val tweetsRDD = englishTweetsRDD.map(tweetToIdTextPairRDD)
+    val responsesRDD = englishTweetsRDD.map(responseToIdTextPairRDD)
 
-    val vertices = tweetsRDD union responsesRDD
-    val edges = englishTweetsRDD map extractEdges
+    val vertices = tweetsRDD.union(responsesRDD)
+    val edges = englishTweetsRDD.map(extractEdges)
     val none = "none" // defining a defaul vertex
     val graph = Graph(vertices, edges, none) // defining a graph of tweets
 
     graph.cache()
 
     val popularInDegrees = graph // this will be used later
-      .inDegrees
+    .inDegrees
       .sortBy(getCount, descending)
       .take(20)
 
     val popularTweetsIds = popularInDegrees.map(getIds)
 
-    val popularTriplets = graph
-      .triplets
-      .filter(popularTweetsIds contains _.dstId)
+    val popularTriplets = graph.triplets
+      .filter(triplet => popularTweetsIds.contains(triplet.dstId))
 
     popularTriplets.cache()
 
     val mostRepliedTweet = popularTweetsIds.head // tweet with maximum number of replies
 
-    val driver = GraphDatabase.driver("bolt://localhost/", AuthTokens.basic("neo4j", "admin"))
+    val driver = GraphDatabase.driver("bolt://localhost/",
+                                      AuthTokens.basic("neo4j", "admin"))
 
     popularTriplets.collect().foreach { triplet =>
       val session = driver.session()
 
-      val query = s"""
-        |MERGE (t1: ${ getTweetType(triplet.srcAttr) } {text:'${ sanitizeTweet(triplet.srcAttr) }', id:'${ triplet.srcId }'})
-        |MERGE (t2: ${ getTweetType(triplet.dstAttr) } {text:'${ sanitizeTweet(triplet.dstAttr) }', id: '${ triplet.dstId }', isMostPopular: '${ triplet.dstId == mostRepliedTweet }'})
+      val query =
+        s"""
+        |MERGE (t1: ${getTweetType(triplet.srcAttr)} {text:'${sanitizeTweet(
+             triplet.srcAttr)}', id:'${triplet.srcId}'})
+        |MERGE (t2: ${getTweetType(triplet.dstAttr)} {text:'${sanitizeTweet(
+             triplet.dstAttr)}', id: '${triplet.dstId}', isMostPopular: '${triplet.dstId == mostRepliedTweet}'})
         |CREATE UNIQUE (t1)-[r:REPLIED]->(t2)""".stripMargin
 
       Try(session.run(query))
@@ -71,14 +75,26 @@ object TwitterGraph extends TweetUtils with Transformations {
     val trumpMostPopular = 796315640307060738L // id of the most popular tweets were taken from the graph
     val clintonMostPopular = 796169187882369024L
 
-    val trumpTotalRepliesCount = popularTriplets.filter(triplet => triplet.dstId == trumpMostPopular).count
-    val clintonTotalRepliesCount = popularTriplets.filter(triplet => triplet.dstId == clintonMostPopular).count
+    val trumpTotalRepliesCount = popularTriplets
+      .filter(triplet => triplet.dstId == trumpMostPopular)
+      .count
+    val clintonTotalRepliesCount = popularTriplets
+      .filter(triplet => triplet.dstId == clintonMostPopular)
+      .count
 
-    val trumpOffensiveRepliesCount = popularTriplets.filter(triplet => triplet.dstId == trumpMostPopular && isCurseTweet(triplet.srcAttr)).count
-    val clintonOffensiveRepliesCount = popularTriplets.filter(triplet => triplet.dstId == clintonMostPopular && isCurseTweet(triplet.srcAttr)).count
+    val trumpOffensiveRepliesCount = popularTriplets
+      .filter(triplet =>
+        triplet.dstId == trumpMostPopular && isCurseTweet(triplet.srcAttr))
+      .count
+    val clintonOffensiveRepliesCount = popularTriplets
+      .filter(triplet =>
+        triplet.dstId == clintonMostPopular && isCurseTweet(triplet.srcAttr))
+      .count
 
-    println(s"Total replies to Trump's most popular tweet: $trumpTotalRepliesCount, number of tweets containing curses: $trumpOffensiveRepliesCount, ratio: ${ trumpOffensiveRepliesCount.toFloat / trumpTotalRepliesCount }")
-    println(s"Total replies to Clinton's most popular tweet: $clintonTotalRepliesCount, number of tweets containing curses: $clintonOffensiveRepliesCount, ratio: ${ clintonOffensiveRepliesCount.toFloat / clintonTotalRepliesCount }")
+    println(
+      s"Total replies to Trump's most popular tweet: $trumpTotalRepliesCount, number of tweets containing curses: $trumpOffensiveRepliesCount, ratio: ${trumpOffensiveRepliesCount.toFloat / trumpTotalRepliesCount}")
+    println(
+      s"Total replies to Clinton's most popular tweet: $clintonTotalRepliesCount, number of tweets containing curses: $clintonOffensiveRepliesCount, ratio: ${clintonOffensiveRepliesCount.toFloat / clintonTotalRepliesCount}")
 
     val popularPageRank = graph
       .staticPageRank(10)
@@ -86,9 +102,11 @@ object TwitterGraph extends TweetUtils with Transformations {
       .sortBy(getRank, descending)
       .take(20)
 
-    (popularInDegrees zip popularPageRank)             // zip the results that we have got from two approaches
-      .foreach { case ((l, _), (r, _)) =>
-        println(s"$l $r ${ if (l == r) "" else "!" }") // print out ids of the tweets and append an ! if they are not equal
+    popularInDegrees
+      .zip(popularPageRank) // zip the results that we have got from two approaches
+      .foreach {
+        case ((l, _), (r, _)) =>
+          println(s"$l $r ${if (l == r) "" else "!"}") // print out ids of the tweets and append an ! if they are not equal
       }
 
     val replies = englishTweetsRDD
@@ -101,7 +119,9 @@ object TwitterGraph extends TweetUtils with Transformations {
 
     val repliesWithRepliesIds = englishTweetsRDD
       // get tweets that reply to replies:
-      .filter { case (_, _, inReplyToStatusId) => replies(inReplyToStatusId.toString) }
+      .filter {
+        case (_, _, inReplyToStatusId) => replies(inReplyToStatusId.toString)
+      }
       // get ids of first level replies:
       .map(_._3.toLong)
       .collect()

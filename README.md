@@ -18,11 +18,10 @@ Now we have data to play around with. And as the title of the article suggests I
 The first step is to prepare data for our graph. So let's create an RDD from the raw DataFrame (file [TwitterGraph.scala](src/main/scala/eugenzyx/TwitterGraph.scala)):
 
 ```scala
-val englishTweetsRDD =
-  inputDataFrame
-    .where("lang = \"en\"")    // here I took only tweets in English,
-    .map(toTweetSummary)       // mapped them into triples of this format: (id, text, inReplyToStatusId),
-    .filter(onlyValidRecords)  // and removed malformed tweets
+val englishTweetsRDD = inputDataFrame
+  .where("lang = \"en\"")    // here I took only tweets in English,
+  .map(toTweetSummary)       // mapped them into triples of this format: (id, text, inReplyToStatusId),
+  .filter(onlyValidRecords)  // and removed malformed tweets
 ```
 
 The next reasonable step is to cache the `englishTweetsRDD` RDD in order to avoid repetitive processing of steps in its physical plan, as it is going to be used multiple times:
@@ -34,16 +33,16 @@ englishTweetsRDD.cache()
 Afterward, we define vertices of the graph:
 
 ```scala
-val tweetsRDD = englishTweetsRDD map tweetToIdTextPairRDD       // converting tweets to tuples of two elements:
-val responsesRDD = englishTweetsRDD map responseToIdTextPairRDD // (id, text)
+val tweetsRDD = englishTweetsRDD.map(tweetToIdTextPairRDD)       // converting tweets to tuples of two elements:
+val responsesRDD = englishTweetsRDD.map(responseToIdTextPairRDD) // (id, text)
 
-val vertices = tweetsRDD union responsesRDD                     // and performing a union of the two RDDs
+val vertices = tweetsRDD.union(responsesRDD)                     // and performing a union of the two RDDs
 ```
 
 And its edges:
 
 ```scala
-val edges = englishTweetsRDD map extractEdges
+val edges = englishTweetsRDD.map(extractEdges)
 ```
 
 where `extractEdges` is a function defined in [Transformations.scala](src/main/scala/eugenzyx/Transformations.scala):
@@ -81,9 +80,8 @@ This got us twenty ids of the tweets with the largest number of replies. Now it 
 Fig. 2 - Triplet of two vertices and an edge
 
 ```scala
-val popularTriplets = graph
-  .triplets
-  .filter(popularTweetsIds contains _.dstId)
+val popularTriplets = graph.triplets
+  .filter(triplet => popularTweetsIds.contains(triplet.dstId))
 ```
 
 Now, when we have this data it is finally possible to visualize it. I want this visualization to show relationship between tweets and quickly answer these questions:
@@ -179,9 +177,11 @@ println(popularTweetsIds.toSet == popularTweetsPageRank.toSet) // true
 Well, that is not entirely true. If we look closely and compare the top tweets as two ordered lists (as opposed to comparison of the sets above, which are not ordered collections, by the way), we would see that there are two swapped tweets:
 
 ```scala
-(popularInDegrees zip popularPageRank)             // zip the results that we have got from two approaches
-  .foreach { case ((l, _), (r, _)) =>
-    println(s"$l $r ${ if (l == r) "" else "!" }") // print out ids of the tweets and append an ! if they are not equal
+popularInDegrees
+  .zip(popularPageRank) // zip the results that we have got from two approaches
+  .foreach {
+    case ((l, _), (r, _)) =>
+      println(s"$l $r ${if (l == r) "" else "!"}") // print out ids of the tweets and append an ! if they are not equal
   }
 
 Output:
@@ -222,7 +222,9 @@ val replies = englishTweetsRDD
 
 val repliesWithRepliesIds = englishTweetsRDD
   // get tweets that reply to replies:
-  .filter { case (_, _, inReplyToStatusId) => replies(inReplyToStatusId.toString) }
+  .filter {
+    case (_, _, inReplyToStatusId) => replies(inReplyToStatusId.toString)
+  }
   // get ids of first level replies:
   .map(_._3.toLong)
   .collect()

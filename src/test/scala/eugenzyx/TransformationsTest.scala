@@ -8,10 +8,10 @@ import org.apache.spark.graphx.Edge
 import org.scalatest.{Assertions, BeforeAndAfter, FunSuite}
 
 class TransformationsTest
-  extends FunSuite
-  with BeforeAndAfter
-  with SharedSparkContext
-  with Transformations {
+    extends FunSuite
+    with BeforeAndAfter
+    with SharedSparkContext
+    with Transformations {
 
   var inRDD: RDD[TweetSummary] = _
 
@@ -22,7 +22,7 @@ class TransformationsTest
   test("tweetToIdTextPairRDD") {
     val expectedRDD: RDD[(Long, String)] = sc.parallelize(List((1, "text")))
 
-    val resultRDD: RDD[(Long, String)] = inRDD map tweetToIdTextPairRDD
+    val resultRDD: RDD[(Long, String)] = inRDD.map(tweetToIdTextPairRDD)
 
     assert(None === RDDComparisons.compare(expectedRDD, resultRDD))
   }
@@ -30,13 +30,14 @@ class TransformationsTest
   test("responseToIdTextPairRDD") {
     val expectedRDD: RDD[(Long, String)] = sc.parallelize(List((2, "")))
 
-    val resultRDD: RDD[(Long, String)] = inRDD map responseToIdTextPairRDD
+    val resultRDD: RDD[(Long, String)] = inRDD.map(responseToIdTextPairRDD)
 
     assert(None === RDDComparisons.compare(expectedRDD, resultRDD))
   }
 
   test("extractEdges") {
-    val expectedRDD: RDD[Edge[String]] = sc.parallelize(List(Edge(1, 2, "Replies")))
+    val expectedRDD: RDD[Edge[String]] =
+      sc.parallelize(List(Edge(1, 2, "Replies")))
 
     val resultRDD: RDD[Edge[String]] = inRDD map extractEdges
 
@@ -44,15 +45,17 @@ class TransformationsTest
   }
 
   test("onlyValidRecords") {
-    val inRDD: RDD[TweetSummary] = sc.parallelize(List(
-      ("1", "text", "2"),
-      ("er", "r", "or"),
-      ("2", "text", "three")
+    val inRDD: RDD[TweetSummary] = sc.parallelize(
+      List(
+        ("1", "text", "2"),
+        ("er", "r", "or"),
+        ("2", "text", "three")
       ))
 
-    val expectedRDD: RDD[TweetSummary] = sc.parallelize(List(("1", "text", "2")))
+    val expectedRDD: RDD[TweetSummary] =
+      sc.parallelize(List(("1", "text", "2")))
 
-    val resultRDD: RDD[TweetSummary] = inRDD filter onlyValidRecords
+    val resultRDD: RDD[TweetSummary] = inRDD.filter(onlyValidRecords)
 
     assert(None === RDDComparisons.compare(expectedRDD, resultRDD))
   }
