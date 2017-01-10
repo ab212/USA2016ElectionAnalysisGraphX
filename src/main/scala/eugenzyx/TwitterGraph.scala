@@ -72,8 +72,19 @@ object TwitterGraph extends TweetUtils with Transformations {
     }
     driver.close()
 
-    val trumpMostPopular = 796315640307060738L // id of the most popular tweets were taken from the graph
-    val clintonMostPopular = 796169187882369024L
+    val mentions =
+      popularTriplets
+        // show mentions of the candidates for every tweet
+        .map { triplet =>
+          implicit def booleanToInt(b: Boolean): Int = if (b) 1 else 0
+
+          (triplet.dstId, (isTrumpTweet(triplet.srcAttr): Int, isHillaryTweet(triplet.srcAttr): Int))
+        }
+        .reduceByKey { case ((l1, l2), (r1, r2)) => (l1 + r1, l2 + r2) } // sum up mentions
+        .collect()
+
+    val trumpMostPopular = mentions.maxBy { case (id, (trumpCount, clintonCount)) => trumpCount }._1
+    val clintonMostPopular = mentions.maxBy { case (id, (trumpCount, clintonCount)) => clintonCount }._1
 
     val trumpTotalRepliesCount = popularTriplets
       .filter(triplet => triplet.dstId == trumpMostPopular)
